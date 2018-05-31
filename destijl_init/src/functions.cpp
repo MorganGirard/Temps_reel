@@ -207,13 +207,157 @@ void f_move(void *arg) {
         rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
         if (robotStarted) {
             rt_mutex_acquire(&mutex_move, TM_INFINITE);
-            send_command_to_robot(move);
+            err = send_command_to_robot(move);
             rt_mutex_release(&mutex_move);
+            rt_mutex_acquire(&mutex_errCounter, TM_INFINITE);
+            if (err == 0) {
+            	errCounter = 0;
+            } else {
+            	errCounter++;
+            	if (errCounter > 3) {
+            		// send communication lost signal
+            	}
+            }
+            rt_mutex_release(&mutex_errCounter);
 #ifdef _WITH_TRACE_
             printf("%s: the movement %c was sent\n", info.name, move);
 #endif            
         }
         rt_mutex_release(&mutex_robotStarted);
+    }
+}
+
+void f_battery(void *arg) {
+    /* INIT */
+    RT_TASK_INFO info;
+    rt_task_inquire(NULL, &info);
+    printf("Init %s\n", info.name);
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    int battery;
+    /* PERIODIC START */
+#ifdef _WITH_TRACE_
+    printf("%s: start period\n", info.name);
+#endif
+    rt_task_set_periodic(NULL, TM_NOW, 500000000);
+    while (1) {
+#ifdef _WITH_TRACE_
+        printf("%s: Wait period \n", info.name);
+#endif
+        rt_task_wait_period(NULL);
+#ifdef _WITH_TRACE_
+        printf("%s: Periodic activation\n", info.name);
+        printf("%s: move equals %c\n", info.name, move);
+#endif
+        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+        if (robotStarted) {
+            err = send_command_to_robot(DMB_GET_VBAT);
+            rt_mutex_acquire(&mutex_errCounter, TM_INFINITE);
+            if (err != -1) {
+            	errCounter = 0;
+            	battery = err + 48;
+            	MessageToMon msg;
+            	set_msgToMon_header(&msg, HEADER_STM_BAT);
+            	set_msgToMon_data(&msg, (void *) &battery);
+            	write_in_queue(&q_messageToMon, msg);
+            } else {
+            	errCounter++;
+            	if (errCounter > 3) {
+            		// send communication lost signal
+            	}
+            }
+            rt_mutex_release(&mutex_errCounter);
+#ifdef _WITH_TRACE_
+            printf("%s: the movement %c was sent\n", info.name, move);
+#endif
+        }
+        rt_mutex_release(&mutex_robotStarted);
+    }
+}
+
+void f_gestCamera(void * arg) {
+    int err;
+
+    /* INIT */
+    RT_TASK_INFO info;
+    rt_task_inquire(NULL, &info);
+    printf("Init %s\n", info.name);
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    Camera camera;
+    Image image;
+    Arene local_arene;
+    while (1) {
+#ifdef _WITH_TRACE_
+        printf("%s : Wait sem_msgForCamera\n", info.name);
+#endif
+        rt_sem_p(&sem_msgForCamera, TM_INFINITE);
+#ifdef _WITH_TRACE_
+        printf("%s : sem_msgForCamera arrived \n", info.name);
+#endif
+        rt_mutex_acquire(&mutex_msgFromMonitor, TM_INFINITE);
+        char order = msgFromMonitor;
+        rt_mutex_release(&mutex_msgFromMonitor);
+        switch (order) {
+			case CAM_OPEN:
+				err = open_camera(&camera);
+				if (err == 0) {
+					rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+					imageControl = 1;
+					rt_mutex_release(&mutex_imageControl);
+				} else {
+					MessageToMon msg;
+                    set_msgToMon_header(&msg, HEADER_STM_MES);
+                    set_msgToMon_data(&msg, (void *) "open_camera failed\n");
+                    write_in_queue(&q_messageToMon, msg);
+				}
+				break;
+			case CAM_CLOSE:
+				close_camera(&camera);
+				break;
+			case CAM_COMPUTE_POSITION:
+				rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+				imageControl = 2;
+				rt_mutex_release(&mutex_imageControl);
+				break;
+			case CAM_STOP_COMPUTE_POSITION:
+				rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+				imageControl = 1;
+				rt_mutex_release(&mutex_imageControl);
+				break;
+			case CAM_ASK_ARENA:
+				rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+				imageControl = 0;
+				rt_mutex_release(&mutex_imageControl);
+				get_image(&camera, &image, NULL);
+				err = detect_arene(&image, &local_arene);
+				if (err == 0) {
+					draw_arene(&image, &image, &local_arene);
+					MessageToMon msg;
+                    set_msgToMon_header(&msg, HEADER_STM_IMAGE);
+                    set_msgToMon_data(&msg, (void *) image);
+                    write_in_queue(&q_messageToMon, msg);
+				} else {
+					MessageToMon msg;
+                    set_msgToMon_header(&msg, HEADER_STM_MES);
+                    set_msgToMon_data(&msg, (void *) "Unable to detect arena\n");
+                    write_in_queue(&q_messageToMon, msg);
+				}
+				break;
+			case CAM_ARENA_CONFIRM:
+				rt_mutex_acquire(&mutex_arene, TM_INFINITE);
+				arene = local_arene;
+				rt_mutex_release(&mutex_arene);
+
+				rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+				imageControl = 1;
+				rt_mutex_release(&mutex_imageControl);
+				break;
+			case CAM_ARENA_INFIRM:
+				rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+				imageControl = 1;
+				rt_mutex_release(&mutex_imageControl);
+				break;
+			default:
+        }
     }
 }
 
