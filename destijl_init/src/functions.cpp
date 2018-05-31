@@ -109,11 +109,16 @@ void f_receiveFromMon(void *arg) {
 #endif
 
             }
+        } else if (strcmp(msg.header, HEADER_MTS_CAMERA) == 0) {
+        	rt_mutex_acquire(&mutex_msgFromMonitor, TM_INFINITE);
+			msgFromMonior = msg.data[0];
+			rt_mutex_release(&mutex_msgFromMonitor);
+			rt_sem_v(&sem_msgForCamera);
         }
     } while (err > 0);
 
 }
-
+sem_openComRobot
 void f_openComRobot(void * arg) {
     int err;
 
