@@ -27,6 +27,7 @@ RT_TASK th_startRobot;
 RT_TASK th_move;
 RT_TASK th_battery;
 RT_TASK th_gestCamera;
+RT_TASK th_sendImage;
 
 // Déclaration des priorités des taches
 int PRIORITY_TSERVER = 30;
@@ -37,13 +38,15 @@ int PRIORITY_TRECEIVEFROMMON = 22;
 int PRIORITY_TSTARTROBOT = 20;
 int PRIORITY_TBATTERY = 24;
 int PRIORITY_TGESTCAMERA = 35;
+int PRIORITY_TSENDIMAGE = 36;
 
+// Déclaration des mutex
 RT_MUTEX mutex_robotStarted;
 RT_MUTEX mutex_move;
 RT_MUTEX mutex_errCounter;
 RT_MUTEX mutex_imageControl;
 RT_MUTEX mutex_msgFromMonitor;
-RT_MUTEX mutex_arene;
+RT_MUTEX mutex_sharedCameraRes;
 
 // Déclaration des sémaphores
 RT_SEM sem_barrier;
@@ -56,7 +59,7 @@ RT_SEM sem_msgForCamera;
 RT_QUEUE q_messageToMon;
 
 int MSG_QUEUE_SIZE = 10;
-
+RIORITY_TSEND_IMAGE
 // Déclaration des ressources partagées
 int etatCommMoniteur = 1;
 int robotStarted = 0;
@@ -64,7 +67,8 @@ char move = DMB_STOP_MOVE;
 int errCounter = 0;
 int imageControl = 0;
 char msgFromMon;
-Arene arene;
+Arene sharedArena;
+Camera sharedCamera;
 
 /**
  * \fn void initStruct(void)
@@ -126,7 +130,7 @@ void initStruct(void) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
-    if (err = rt_mutex_create(&mutex_arene, NULL)) {
+    if (err = rt_mutex_create(&mutex_sharedCameraRes, NULL)) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
@@ -186,6 +190,10 @@ void initStruct(void) {
             printf("Error task create: %s\n", strerror(-err));
             exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_sendImage, "th_sendImage", 0, PRIORITY_TSENDIMAGE, 0)) {
+            printf("Error task create: %s\n", strerror(-err));
+            exit(EXIT_FAILURE);
+    }
 
     /* Creation des files de messages */
     if (err = rt_queue_create(&q_messageToMon, "toto", MSG_QUEUE_SIZE * sizeof (MessageToRobot), MSG_QUEUE_SIZE, Q_FIFO)) {
@@ -224,6 +232,10 @@ void startTasks() {
             exit(EXIT_FAILURE);
     }
     if (err = rt_task_start(&th_gestCamera, &f_gestCamera, NULL)) {
+            printf("Error task start: %s\n", strerror(-err));
+            exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_sendImage, &f_sendImage, NULL)) {
             printf("Error task start: %s\n", strerror(-err));
             exit(EXIT_FAILURE);
     }

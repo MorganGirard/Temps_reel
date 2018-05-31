@@ -284,7 +284,7 @@ void f_gestCamera(void * arg) {
     rt_sem_p(&sem_barrier, TM_INFINITE);
     Camera camera;
     Image image;
-    Arene local_arene;
+    Arene arena;
     while (1) {
 #ifdef _WITH_TRACE_
         printf("%s : Wait sem_msgForCamera\n", info.name);
@@ -300,6 +300,9 @@ void f_gestCamera(void * arg) {
 			case CAM_OPEN:
 				err = open_camera(&camera);
 				if (err == 0) {
+					rt_mutex_acquire(&mutex_sharedCameraRes, TM_INFINITE);
+					sharedCamera = camera;
+					rt_mutex_release(&mutex_sharedCameraRes);
 					rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
 					imageControl = 1;
 					rt_mutex_release(&mutex_imageControl);
@@ -328,9 +331,9 @@ void f_gestCamera(void * arg) {
 				imageControl = 0;
 				rt_mutex_release(&mutex_imageControl);
 				get_image(&camera, &image, NULL);
-				err = detect_arene(&image, &local_arene);
+				err = detect_arene(&image, &arena);
 				if (err == 0) {
-					draw_arene(&image, &image, &local_arene);
+					draw_arene(&image, &image, &arena);
 					MessageToMon msg;
                     set_msgToMon_header(&msg, HEADER_STM_IMAGE);
                     set_msgToMon_data(&msg, (void *) image);
@@ -343,9 +346,9 @@ void f_gestCamera(void * arg) {
 				}
 				break;
 			case CAM_ARENA_CONFIRM:
-				rt_mutex_acquire(&mutex_arene, TM_INFINITE);
-				arene = local_arene;
-				rt_mutex_release(&mutex_arene);
+				rt_mutex_acquire(&mutex_sharedCameraRes, TM_INFINITE);
+				sharedArena = arena;
+				rt_mutex_release(&mutex_sharedCameraRes);
 
 				rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
 				imageControl = 1;
@@ -358,6 +361,50 @@ void f_gestCamera(void * arg) {
 				break;
 			default:
         }
+    }
+}
+
+void f_sendImage(void *arg) {
+    /* INIT */
+    RT_TASK_INFO info;
+    rt_task_inquire(NULL, &info);
+    printf("Init %s\n", info.name);
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    /* PERIODIC START */
+#ifdef _WITH_TRACE_
+    printf("%s: start period\n", info.name);
+#endif
+    rt_task_set_periodic(NULL, TM_NOW, 100000000);
+    while (1) {
+#ifdef _WITH_TRACE_
+        printf("%s: Wait period \n", info.name);
+#endif
+        rt_task_wait_period(NULL);
+#ifdef _WITH_TRACE_
+        printf("%s: Periodic activation\n", info.name);
+        printf("%s: move equals %c\n", info.name, move);
+#endif
+        Image image;
+        Camera camera;
+        Arene arene;
+        rt_mutex_acquire(&mutex_imageControl, TM_INFINITE);
+        if (imageControl) {
+        	rt_mutex_acquire(&mutex_sharedCameraRes, TM_INFINITE);
+            camera = sharedCamera;
+            get_image(&camera, &image, NULL);
+            if (imageControl == 2) {
+            	Position position;
+            	arena = sharedArena;
+            	detect_position(&image, &position, &arene);
+            	draw_position(&image, &image, &position);
+            }
+            MessageToMon msg;
+			set_msgToMon_header(&msg, HEADER_STM_IMAGE);
+			set_msgToMon_data(&msg, (void *) image);
+			write_in_queue(&q_messageToMon, msg);
+			rt_mutex_release(&mutex_sharedCameraRes);
+        }
+        rt_mutex_release(&mutex_imageControl);
     }
 }
 
