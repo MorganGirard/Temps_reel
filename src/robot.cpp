@@ -51,6 +51,7 @@ int send_command_to_robot(char cmd, const char * arg)
 #ifndef __STUB__
     sendCmd(cmd,arg);
     // TODO : check return from sendCmd
+    
     return receiveMsg();
 #else
     int reponse;

@@ -28,6 +28,7 @@ RT_TASK th_move;
 RT_TASK th_battery;
 RT_TASK th_gestCamera;
 RT_TASK th_sendImage;
+RT_TASK th_cleanup;
 
 // Déclaration des priorités des taches
 int PRIORITY_TSERVER = 30;
@@ -39,13 +40,14 @@ int PRIORITY_TSTARTROBOT = 20;
 int PRIORITY_TBATTERY = 24;
 int PRIORITY_TGESTCAMERA = 35;
 int PRIORITY_TSENDIMAGE = 36;
+int PRIORITY_TCLEANUP = 40;
 
 // Déclaration des mutex
-RT_MUTEX mutex_robotStarted;
+//RT_MUTEX mutex_robotStarted;
 RT_MUTEX mutex_move;
 RT_MUTEX mutex_errCounter;
 RT_MUTEX mutex_imageControl;
-RT_MUTEX mutex_msgFromMonitor;
+RT_MUTEX mutex_msgFromMon;
 RT_MUTEX mutex_sharedCameraRes;
 
 // Déclaration des sémaphores
@@ -53,13 +55,13 @@ RT_SEM sem_barrier;
 RT_SEM sem_openComRobot;
 RT_SEM sem_serverOk;
 RT_SEM sem_startRobot;
+RT_SEM sem_robotStarted;
 RT_SEM sem_msgForCamera;
 
 // Déclaration des files de message
 RT_QUEUE q_messageToMon;
 
 int MSG_QUEUE_SIZE = 10;
-RIORITY_TSEND_IMAGE
 // Déclaration des ressources partagées
 int etatCommMoniteur = 1;
 int robotStarted = 0;
@@ -110,10 +112,10 @@ int main(int argc, char **argv) {
 void initStruct(void) {
     int err;
     /* Creation des mutex */
-    if (err = rt_mutex_create(&mutex_robotStarted, NULL)) {
+    /*f (err = rt_mutex_create(&mutex_robotStarted, NULL)) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
-    }
+    }*/
     if (err = rt_mutex_create(&mutex_move, NULL)) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
@@ -126,7 +128,7 @@ void initStruct(void) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
-    if (err = rt_mutex_create(&mutex_msgFromMonitor, NULL)) {
+    if (err = rt_mutex_create(&mutex_msgFromMon, NULL)) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
@@ -153,6 +155,10 @@ void initStruct(void) {
         exit(EXIT_FAILURE);
     }
     if (err = rt_sem_create(&sem_msgForCamera, NULL, 0, S_FIFO)) {
+        printf("Error semaphore create: %s\n", strerror(-err));
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_robotStarted, NULL, 0, S_FIFO)) {
         printf("Error semaphore create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
@@ -191,6 +197,10 @@ void initStruct(void) {
             exit(EXIT_FAILURE);
     }
     if (err = rt_task_create(&th_sendImage, "th_sendImage", 0, PRIORITY_TSENDIMAGE, 0)) {
+            printf("Error task create: %s\n", strerror(-err));
+            exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_cleanup, "th_cleanup", 0, PRIORITY_TCLEANUP, 0)) {
             printf("Error task create: %s\n", strerror(-err));
             exit(EXIT_FAILURE);
     }
@@ -239,6 +249,11 @@ void startTasks() {
             printf("Error task start: %s\n", strerror(-err));
             exit(EXIT_FAILURE);
     }
+    if (err = rt_task_start(&th_cleanup, &f_cleanup, NULL)) {
+            printf("Error task start: %s\n", strerror(-err));
+            exit(EXIT_FAILURE);
+    }
+    
     if (err = rt_task_start(&th_server, &f_server, NULL)) {
         printf("Error task start: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
