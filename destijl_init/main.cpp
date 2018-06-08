@@ -49,6 +49,7 @@ RT_MUTEX mutex_errCounter;
 RT_MUTEX mutex_imageControl;
 RT_MUTEX mutex_msgFromMon;
 RT_MUTEX mutex_sharedCameraRes;
+RT_MUTEX mutex_restart;
 
 // Déclaration des sémaphores
 RT_SEM sem_barrier;
@@ -57,6 +58,8 @@ RT_SEM sem_serverOk;
 RT_SEM sem_startRobot;
 RT_SEM sem_robotStarted;
 RT_SEM sem_msgForCamera;
+RT_SEM sem_cameraStarted;
+RT_SEM sem_msgForComRobot;
 
 // Déclaration des files de message
 RT_QUEUE q_messageToMon;
@@ -71,6 +74,7 @@ int imageControl = 0;
 char msgFromMon;
 Arene sharedArena;
 Camera sharedCamera;
+int restart = 0;
 
 /**
  * \fn void initStruct(void)
@@ -136,6 +140,10 @@ void initStruct(void) {
         printf("Error mutex create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_restart, NULL)) {
+        printf("Error mutex create: %s\n", strerror(-err));
+        exit(EXIT_FAILURE);
+    }
 
     /* Creation du semaphore */
     if (err = rt_sem_create(&sem_barrier, NULL, 0, S_FIFO)) {
@@ -159,6 +167,14 @@ void initStruct(void) {
         exit(EXIT_FAILURE);
     }
     if (err = rt_sem_create(&sem_robotStarted, NULL, 0, S_FIFO)) {
+        printf("Error semaphore create: %s\n", strerror(-err));
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_cameraStarted, NULL, 0, S_FIFO)) {
+        printf("Error semaphore create: %s\n", strerror(-err));
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_msgForComRobot, NULL, 0, S_FIFO)) {
         printf("Error semaphore create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
