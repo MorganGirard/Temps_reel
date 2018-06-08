@@ -53,6 +53,7 @@ extern RT_SEM sem_robotStarted;
 extern RT_SEM sem_msgForCamera;
 extern RT_SEM sem_cameraStarted;
 extern RT_SEM sem_msgForComRobot;
+extern RT_SEM sem_msgForRobot;
 
 extern RT_QUEUE q_messageToMon;
 

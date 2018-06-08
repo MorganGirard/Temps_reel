@@ -60,6 +60,7 @@ RT_SEM sem_robotStarted;
 RT_SEM sem_msgForCamera;
 RT_SEM sem_cameraStarted;
 RT_SEM sem_msgForComRobot;
+RT_SEM sem_msgForRobot;
 
 // Déclaration des files de message
 RT_QUEUE q_messageToMon;
@@ -175,6 +176,10 @@ void initStruct(void) {
         exit(EXIT_FAILURE);
     }
     if (err = rt_sem_create(&sem_msgForComRobot, NULL, 0, S_FIFO)) {
+        printf("Error semaphore create: %s\n", strerror(-err));
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_msgForRobot, NULL, 0, S_FIFO)) {
         printf("Error semaphore create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }

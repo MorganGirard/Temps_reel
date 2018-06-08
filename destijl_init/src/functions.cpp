@@ -86,11 +86,14 @@ void f_receiveFromMon(void *arg) {
             rt_mutex_release(&mutex_msgFromMon);
             rt_sem_v(&sem_msgForComRobot);
         } else if (strcmp(msg.header, HEADER_MTS_DMB_ORDER) == 0) {
-            if (msg.data[0] == DMB_START_WITHOUT_WD) { // Start robot
+            if (msg.data[0] == DMB_START_WITHOUT_WD || msg.data[0] == DMB_IDLE) { // Start robot or IDLE
 #ifdef _WITH_TRACE_     
                 printf("%s: message start robot\n", info.name);
 #endif 
-                rt_sem_v(&sem_startRobot);
+                rt_mutex_acquire(&mutex_msgFromMon, TM_INFINITE);
+                msgFromMon = msg.data[0];
+                rt_mutex_release(&mutex_msgFromMon);
+                rt_sem_v(&sem_msgForRobot);
             } else if ((msg.data[0] == DMB_GO_BACK)
                     || (msg.data[0] == DMB_GO_FORWARD)
                     || (msg.data[0] == DMB_GO_LEFT)
@@ -114,6 +117,12 @@ void f_receiveFromMon(void *arg) {
         }
     } while (err > 0);
     printf("/!\\ Lost connection with server /!\\\n");
+    send_command_to_robot(DMB_STOP_MOVE);
+    close_communication_robot();
+    rt_mutex_acquire(&mutex_sharedCameraRes, TM_INFINITE);
+    close_camera(&sharedCamera);
+    rt_mutex_release(&mutex_sharedCameraRes);
+    close_server();
     exit(EXIT_FAILURE);
 }
 
@@ -161,35 +170,46 @@ void f_startRobot(void * arg) {
     rt_task_inquire(NULL, &info);
     printf("Init %s\n", info.name);
     rt_sem_p(&sem_barrier, TM_INFINITE);
-
+    char command;
     while (1) {
 #ifdef _WITH_TRACE_
         printf("%s : Wait sem_startRobot\n", info.name);
 #endif
-        rt_sem_p(&sem_startRobot, TM_INFINITE);
+        rt_sem_p(&sem_msgForRobot, TM_INFINITE);
 #ifdef _WITH_TRACE_
         printf("%s : sem_startRobot arrived => Start robot\n", info.name);
 #endif
-        err = send_command_to_robot(DMB_START_WITHOUT_WD);
-        rt_mutex_acquire(&mutex_errCounter, TM_INFINITE);
-        if (err == 0) {
-            errCounter = 0;
-            rt_mutex_release(&mutex_errCounter);
-            send_message_to_monitor(HEADER_STM_ACK, NULL);
+        rt_mutex_acquire(&mutex_msgFromMon, TM_INFINITE);
+        command = msgFromMon;
+        rt_mutex_release(&mutex_msgFromMon);
+        if (command == DMB_START_WITHOUT_WD) {
+            err = send_command_to_robot(command);
+            rt_mutex_acquire(&mutex_errCounter, TM_INFINITE);
+            if (err == 0) {
+                errCounter = 0;
+                rt_mutex_release(&mutex_errCounter);
+                send_message_to_monitor(HEADER_STM_ACK, NULL);
 #ifdef _WITH_TRACE_
  printf("%s : the robot is started\n", info.name);
 #endif
-        rt_mutex_acquire(&mutex_restart, TM_INFINITE);
-        restart = 0;
-        rt_mutex_release(&mutex_restart);
-        rt_sem_broadcast(&sem_robotStarted);
-        } else {
-            errCounter++;
-            rt_mutex_release(&mutex_errCounter);
-            send_message_to_monitor(HEADER_STM_NO_ACK, NULL);
-            if (errCounter > maxErrCount) {
-                errRobot();
+            rt_mutex_acquire(&mutex_restart, TM_INFINITE);
+            restart = 0;
+            rt_mutex_release(&mutex_restart);
+            rt_sem_broadcast(&sem_robotStarted);
+            } else {
+                errCounter++;
+                rt_mutex_release(&mutex_errCounter);
+                send_message_to_monitor(HEADER_STM_NO_ACK, NULL);
+                if (errCounter > maxErrCount) {
+                    errRobot();
+                }
             }
+        } else if (command == DMB_IDLE) {
+            rt_mutex_acquire(&mutex_restart, TM_INFINITE);
+            restart = 1;
+            rt_mutex_release(&mutex_restart);
+            send_command_to_robot(DMB_STOP_MOVE);
+            send_command_to_robot(command);
         }
     }
 }
