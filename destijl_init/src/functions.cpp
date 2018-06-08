@@ -117,13 +117,7 @@ void f_receiveFromMon(void *arg) {
         }
     } while (err > 0);
     printf("/!\\ Lost connection with server /!\\\n");
-    send_command_to_robot(DMB_STOP_MOVE);
-    close_communication_robot();
-    rt_mutex_acquire(&mutex_sharedCameraRes, TM_INFINITE);
-    close_camera(&sharedCamera);
-    rt_mutex_release(&mutex_sharedCameraRes);
-    close_server();
-    exit(EXIT_FAILURE);
+    rt_sem_v(&sem_lostNodeJs);  
 }
 
 void f_openComRobot(void * arg) {
@@ -421,6 +415,15 @@ void f_cleanup(void *arg) {
     rt_task_inquire(NULL, &info);
     printf("Init %s\n", info.name);
     rt_sem_p(&sem_barrier, TM_INFINITE);
+    rt_sem_p(&sem_lostNodeJs, TM_INFINITE);
+    send_command_to_robot(DMB_STOP_MOVE);
+    close_communication_robot();
+    rt_mutex_acquire(&mutex_sharedCameraRes, TM_INFINITE);
+    close_camera(&sharedCamera);
+    rt_mutex_release(&mutex_sharedCameraRes);
+    close_server();
+    exit(EXIT_FAILURE);
+    
     
 }
 

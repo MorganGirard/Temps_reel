@@ -46,14 +46,13 @@ extern RT_MUTEX mutex_sharedCameraRes;
 extern RT_MUTEX mutex_restart;
 
 extern RT_SEM sem_barrier;
-extern RT_SEM sem_openComRobot;
 extern RT_SEM sem_serverOk;
-extern RT_SEM sem_startRobot;
 extern RT_SEM sem_robotStarted;
 extern RT_SEM sem_msgForCamera;
 extern RT_SEM sem_cameraStarted;
 extern RT_SEM sem_msgForComRobot;
 extern RT_SEM sem_msgForRobot;
+extern RT_SEM sem_lostNodeJs;
 
 extern RT_QUEUE q_messageToMon;
 

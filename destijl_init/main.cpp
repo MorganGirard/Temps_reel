@@ -53,14 +53,13 @@ RT_MUTEX mutex_restart;
 
 // Déclaration des sémaphores
 RT_SEM sem_barrier;
-RT_SEM sem_openComRobot;
 RT_SEM sem_serverOk;
-RT_SEM sem_startRobot;
 RT_SEM sem_robotStarted;
 RT_SEM sem_msgForCamera;
 RT_SEM sem_cameraStarted;
 RT_SEM sem_msgForComRobot;
 RT_SEM sem_msgForRobot;
+RT_SEM sem_lostNodeJs;
 
 // Déclaration des files de message
 RT_QUEUE q_messageToMon;
@@ -151,15 +150,7 @@ void initStruct(void) {
         printf("Error semaphore create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
-    if (err = rt_sem_create(&sem_openComRobot, NULL, 0, S_FIFO)) {
-        printf("Error semaphore create: %s\n", strerror(-err));
-        exit(EXIT_FAILURE);
-    }
     if (err = rt_sem_create(&sem_serverOk, NULL, 0, S_FIFO)) {
-        printf("Error semaphore create: %s\n", strerror(-err));
-        exit(EXIT_FAILURE);
-    }
-    if (err = rt_sem_create(&sem_startRobot, NULL, 0, S_FIFO)) {
         printf("Error semaphore create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
@@ -180,6 +171,10 @@ void initStruct(void) {
         exit(EXIT_FAILURE);
     }
     if (err = rt_sem_create(&sem_msgForRobot, NULL, 0, S_FIFO)) {
+        printf("Error semaphore create: %s\n", strerror(-err));
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_lostNodeJs, NULL, 0, S_FIFO)) {
         printf("Error semaphore create: %s\n", strerror(-err));
         exit(EXIT_FAILURE);
     }
