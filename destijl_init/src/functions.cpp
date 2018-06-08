@@ -186,17 +186,17 @@ void f_startRobot(void * arg) {
 #ifdef _WITH_TRACE_
  printf("%s : the robot is started\n", info.name);
 #endif
-            rt_mutex_acquire(&mutex_restart, TM_INFINITE);
-            restart = 0;
-            rt_mutex_release(&mutex_restart);
-            rt_sem_broadcast(&sem_robotStarted);
+                rt_mutex_acquire(&mutex_restart, TM_INFINITE);
+                restart = 0;
+                rt_mutex_release(&mutex_restart);
+                rt_sem_broadcast(&sem_robotStarted);
             } else {
                 errCounter++;
-                rt_mutex_release(&mutex_errCounter);
-                send_message_to_monitor(HEADER_STM_NO_ACK, NULL);
                 if (errCounter > maxErrCount) {
                     errRobot();
                 }
+                rt_mutex_release(&mutex_errCounter);
+                send_message_to_monitor(HEADER_STM_NO_ACK, NULL);
             }
         } else if (command == DMB_IDLE) {
             rt_mutex_acquire(&mutex_restart, TM_INFINITE);
@@ -232,10 +232,10 @@ void f_move(void *arg) {
                 rt_mutex_release(&mutex_errCounter);
             } else {
                 errCounter++;
-                rt_mutex_release(&mutex_errCounter);
                 if (errCounter > maxErrCount) {
                     errRobot();
                 }
+                rt_mutex_release(&mutex_errCounter);
             }  
         rt_mutex_acquire(&mutex_restart, TM_INFINITE);
 #ifdef _WITH_TRACE_
@@ -271,10 +271,10 @@ void f_battery(void *arg) {
                 send_message_to_monitor(HEADER_STM_BAT, &battery);
             } else {
                 errCounter++;
-                rt_mutex_release(&mutex_errCounter);
                 if (errCounter > maxErrCount) {
                     errRobot();
                 }
+                rt_mutex_release(&mutex_errCounter);
             }
         rt_mutex_acquire(&mutex_restart, TM_INFINITE);
 #ifdef _WITH_TRACE_
